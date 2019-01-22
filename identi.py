@@ -6,7 +6,7 @@
 import argparse
 import socket
 import sys
-from threading import Thread
+import threading
 
 
 master_results = []
@@ -20,11 +20,11 @@ def main(args):
         exit(2)
     hostname = clean_host(args.host)
     ip_addr = resolve_host(hostname)
-    if not check_ident_port(args.host, args.port, ip_addr):
-        print("[!] Exiting...")
-        exit(1)
+    # if not check_ident_port(args.host, args.port, ip_addr):
+    #     print("[!] Exiting...")
+    #     exit(1)
     if args.all_ports:
-        query_ports = map(lambda x: str(x), range(1, 65536))
+        query_ports = list(map(str, range(1, 65536)))
         q_string = "1-65535"
     else:
         query_ports = args.query_port
@@ -150,12 +150,23 @@ def enum_port(host, port, query_port, verbose=0):
     client.close()
 
 
+def tqdm(iterable):
+    def report(i):
+        print(f"{i+1:>{formatter}}/{total}", file=sys.stderr, end="\r")
+
+    total = len(iterable)
+    formatter = len(str(total))
+    for i, el in enumerate(iterable):
+        yield el
+        report(i)
+
+
 def do_threaded_work(host, port, q_ports, verbose=0):
     threads = []
-    for i in q_ports:
-        t = Thread(target=enum_port, args=(host, port, int(i), verbose))
-        threads.append(t)
-        t.start()
+    for i in tqdm(q_ports):
+        thread = threading.Thread(target=enum_port, args=(host, port, int(i), verbose))
+        threads.append(thread)
+        thread.start()
     for thread in threads:
         thread.join()
 
